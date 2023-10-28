@@ -1,4 +1,4 @@
-module github.com/croonix/helper
+module github.com/croonix/go-helper
 
 go 1.21.3
 
