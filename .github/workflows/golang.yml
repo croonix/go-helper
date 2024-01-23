@@ -1,0 +1,56 @@
+name: Go Module
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+    branches:
+      - master
+
+permissions: 
+  contents: write
+  actions: write
+
+jobs:
+  plan_job:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    name: "Test go module"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5.0.0
+        with:
+          go-version: "1.21.3"
+      - name: Install dependencies
+        run: go get .
+      - name: Test with Go
+        run: go test -v
+
+  close_pull_request_job:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    name: "Publish go module"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5.0.0
+        with:
+          go-version: "1.21.3"
+      - name: Install dependencies
+        run: go get .
+      - uses: go-semantic-release/action@v1
+        with:
+          hooks: goreleaser
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish Module
+        run: |
+          git fetch --tags
+          latest_tag=$(git describe --tags $(git rev-list --tags --max-count=1))
+          go mod tidy
+          GOPROXY=proxy.golang.org go list -m github.com/$GITHUB_REPOSITORY@$latest_tag
