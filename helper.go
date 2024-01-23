@@ -2,17 +2,41 @@ package helper
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
+	"database/sql"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
+	"time"
 
 	"cloud.google.com/go/logging"
+	"github.com/go-sql-driver/mysql"
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/google"
+	"google.golang.org/api/impersonate"
+	"google.golang.org/api/option"
 )
 
 const WrongMessage = "What are you doing here?"
 
+// MustGetenv validates if the environment variable is set and returns it
+// otherwise it will log a fatal error and exit the program
+// It is used to validate the environment variables
+// Example:
+//   - os.Setenv("TEST", "test")
+//   - fmt.Println(MustGetenv("TEST"))
+//   - fmt.Println(MustGetenv("TEST2"))
+//
+// Output:
+//   - test
+//   - 2021/08/31 11:30:00 Missing environment variable: TEST2
+//   - exit status 1
 func MustGetenv(k string) string {
 	v := os.Getenv(k)
 	if v == "" {
@@ -21,7 +45,27 @@ func MustGetenv(k string) string {
 	return v
 }
 
-func getLoggerProject() string {
+func ImpersonateSA(context context.Context, serviceAccount string, scope string) (token oauth2.TokenSource, err error) {
+	credentials, err := google.FindDefaultCredentials(context, "https://www.googleapis.com/auth/cloud-platform")
+	if err != nil {
+		Logger(fmt.Sprint(" Failed to find the default credentials:", err), "critical")
+		return
+	}
+
+	token, err = impersonate.CredentialsTokenSource(context, impersonate.CredentialsConfig{
+		TargetPrincipal: serviceAccount,
+		Scopes:          []string{"https://www.googleapis.com/auth/iam", scope},
+		Lifetime:        300 * time.Second,
+		Delegates:       []string{},
+	}, option.WithCredentials(credentials))
+	if err != nil {
+		Logger(fmt.Sprint(" Failed to CredentialsTokenSource: ", err), "critical")
+		return
+	}
+	return token, nil
+}
+
+func getGCPProject() string {
 	var (
 		url       = "http://metadata.google.internal/computeMetadata/v1/project/project-id"
 		projectID string
@@ -29,50 +73,36 @@ func getLoggerProject() string {
 
 	webRequest, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		log.Fatalln(" Something went wrong at logger project request:\n", err)
+		return ""
 	}
 
 	webRequest.Header.Add("Metadata-Flavor", "Google")
 	webClient := &http.Client{}
 	webResponse, err := webClient.Do(webRequest)
 	if err != nil {
-		log.Fatalln(" Something went wrong at logger project response:\n", err)
+		return ""
 	}
 	defer webResponse.Body.Close()
 
 	if webResponse.StatusCode == http.StatusOK {
 		webBody, err := io.ReadAll(webResponse.Body)
 		if err != nil {
-			log.Fatalln(" Something went wrong at logger project body:\n", err)
+			return ""
 		}
 		projectID = string(webBody)
 	} else {
-		log.Fatalln(" Something went wrong at logger project status:\n", webResponse.StatusCode)
+		return ""
 	}
+
 	return projectID
 }
 
-func Logger(message string, level string) {
+func gcpLogger(message string, level string, project string) {
 	var (
-		ctx      = context.Background()
-		project  = getLoggerProject()
-		severity = logging.Default
+		ctx = context.Background()
 	)
 
-	switch level {
-	case "info":
-		severity = logging.Info
-	case "notice":
-		severity = logging.Notice
-	case "warning":
-		severity = logging.Warning
-	case "error":
-		severity = logging.Error
-	case "critical":
-		severity = logging.Critical
-	default:
-		severity = logging.Default
-	}
+	severity := logging.ParseSeverity(level)
 
 	loggingClient, err := logging.NewClient(ctx, project)
 	if err != nil {
@@ -87,9 +117,50 @@ func Logger(message string, level string) {
 	loggerFromTemplate.Print(message)
 }
 
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
+func Logger(message string, level string) {
+	var (
+		project = getGCPProject()
+	)
+
+	if project != "" {
+		gcpLogger(message, level, project)
+	} else {
+		fmt.Print(level + ": " + message + "\n")
+	}
+}
+
+type Message struct {
+	Message string `json:"message"`
+}
+
+func MessageHelper(w http.ResponseWriter, message string) {
+	output := Message{
+		Message: message,
+	}
 	w.Header().Set("Content-Type", "application/json")
-	w.Write([]byte(`{"message": "Thanks for checking in! I'm doing fine."}`))
+	json.NewEncoder(w).Encode(output)
+}
+
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	message := Message{
+		Message: "Thanks for checking in! I'm doing fine.",
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(message)
+}
+
+func WrongParameter(w http.ResponseWriter, r *http.Request) {
+	var (
+		paramString string
+		parameters  = r.URL.Query()
+	)
+
+	for key, values := range parameters {
+		valueStr := strings.Join(values, ", ")
+		paramString += fmt.Sprintf("%s:%s ", key, valueStr)
+	}
+	Logger(fmt.Sprintf(" - Wrong parameters were passed: [%s]", paramString), "notice")
+	http.Error(w, WrongMessage, http.StatusTeapot)
 }
 
 func UndefinedAnswer(w http.ResponseWriter, r *http.Request) {
@@ -116,4 +187,97 @@ func WrongPath() http.Handler {
 		Logger("=============================================================", "warning")
 		http.Error(w, WrongMessage, http.StatusTeapot)
 	})
+}
+
+func ConnectCloudSQL(database string) *sql.DB {
+	databaseSocket, err := connectTCPSocket(database)
+	if err != nil {
+		Logger(fmt.Sprint(" Something went wrong when trying to create a connection to the database: ", err), "critical")
+		return nil
+	}
+
+	if databaseSocket == nil {
+		Logger(" Something went wrong with the values that were passed to the database connection.", "critical")
+		return nil
+	}
+
+	return databaseSocket
+}
+
+func connectTCPSocket(database string) (*sql.DB, error) {
+	var (
+		databaseUser     = MustGetenv("DATABASE_USER")
+		databasePassword = MustGetenv("DATABASE_PASS")
+		databaseIP       = MustGetenv("DATABASE_IP")
+		databaseName     = MustGetenv("DATABASE_NAME")
+		databaseProject  = MustGetenv("PROJECT_ID")
+		databasePort     = "3306"
+	)
+
+	databaseURI := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", databaseUser, databasePassword, databaseIP, databasePort, database)
+
+	if databaseRootCert, ok := os.LookupEnv("DATABASE_ROOT_CERT"); ok {
+		var (
+			databaseCert    = MustGetenv("DATABASE_CERT")
+			databaseCertKey = MustGetenv("DATABASE_CERT_KEY")
+		)
+		certificatePool := x509.NewCertPool()
+		rootCertificate, err := os.ReadFile(databaseRootCert)
+		if err != nil {
+			Logger(fmt.Sprint(" Something went wrong when trying to read the root certificate: ", err), "critical")
+			return nil, err
+		}
+
+		if ok := certificatePool.AppendCertsFromPEM(rootCertificate); !ok {
+			Logger(fmt.Sprint(" Something went wrong when trying to append the root certificate to the pool: ", err), "critical")
+			return nil, errors.New("unable to append root cert to pool")
+		}
+
+		clientCertificate, err := tls.LoadX509KeyPair(databaseCert, databaseCertKey)
+		if err != nil {
+			Logger(fmt.Sprint(" Something went wrong when trying to load the client certificate: ", err), "critical")
+			return nil, err
+		}
+
+		// Issue with the connection and use the function in here:
+		// https://github.com/golang/go/issues/40748
+		mysql.RegisterTLSConfig("cloudsql", &tls.Config{
+			RootCAs:            certificatePool,
+			Certificates:       []tls.Certificate{clientCertificate},
+			InsecureSkipVerify: true,
+			ServerName:         databaseProject + ":" + databaseName,
+			VerifyConnection: func(cs tls.ConnectionState) error {
+				commonName := cs.PeerCertificates[0].Subject.CommonName
+				if commonName != cs.ServerName {
+					Logger(fmt.Sprintf(" Something went wrong when trying to verify the connection: invalid certificate name %q, expected %q", commonName, cs.ServerName), "critical")
+					return fmt.Errorf(" Something went wrong when trying to verify the connection: invalid certificate name")
+				}
+				opts := x509.VerifyOptions{
+					Roots:         certificatePool,
+					Intermediates: x509.NewCertPool(),
+				}
+				for _, cert := range cs.PeerCertificates[1:] {
+					opts.Intermediates.AddCert(cert)
+				}
+				_, err := cs.PeerCertificates[0].Verify(opts)
+				return err
+			},
+		})
+		databaseURI += "&tls=cloudsql"
+	}
+
+	databaseConnection, err := sql.Open("mysql", databaseURI)
+	if err != nil {
+		return nil, fmt.Errorf("sql.Open: %w", err)
+	}
+
+	configureConnectionPool(databaseConnection)
+
+	return databaseConnection, nil
+}
+
+func configureConnectionPool(db *sql.DB) {
+	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(7)
+	db.SetConnMaxLifetime(1800 * time.Second)
 }
