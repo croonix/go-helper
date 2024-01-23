@@ -6,7 +6,7 @@ Package `croonix/go-helper` help in the development of Go applications by provid
 
 ## Usage
 
-Here is a basic example of how to use it:
+To use, only import as `helper` and use it:
 
 ```go
 package main
