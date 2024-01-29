@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/logging v1.9.0
 	github.com/go-sql-driver/mysql v1.7.1
 	golang.org/x/oauth2 v0.16.0
-	google.golang.org/api v0.157.0
+	google.golang.org/api v0.160.0
 )
 
 require (
