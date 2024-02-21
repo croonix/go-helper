@@ -40,10 +40,11 @@ jobs:
       - name: Setup Go
         uses: actions/setup-go@v5.0.0
         with:
-          go-version: "1.21.3"
+          go-version: "1.22.0"
       - name: Install dependencies
         run: go get .
-      - uses: go-semantic-release/action@v1
+      - name: Semantic Release
+        uses: go-semantic-release/action@v1.23.0
         with:
           hooks: goreleaser
         env:
