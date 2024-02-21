@@ -25,6 +25,21 @@ import (
 
 const WrongMessage = "What are you doing here?"
 
+type Message struct {
+	Message string `json:"message"`
+}
+
+func GetFavicon(w http.ResponseWriter, r *http.Request) {
+	iconData, err := os.ReadFile("favicon.ico")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		fmt.Println(" - Error: ", err)
+		return
+	}
+	w.Header().Set("Content-Type", "image/x-icon")
+	w.Write(iconData)
+}
+
 // MustGetenv validates if the environment variable is set and returns it
 // otherwise it will log a fatal error and exit the program
 // It is used to validate the environment variables
@@ -127,10 +142,6 @@ func Logger(message string, level string) {
 	} else {
 		fmt.Print(level + ": " + message + "\n")
 	}
-}
-
-type Message struct {
-	Message string `json:"message"`
 }
 
 func MessageHelper(w http.ResponseWriter, message string) {
