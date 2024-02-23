@@ -95,7 +95,7 @@ func setServiceAccountUserRole(impersonateAccount string, targetAccount string, 
 		ctx           = context.Background()
 		functionScope = "https://www.googleapis.com/auth/iam"
 		principalId   = fmt.Sprintf("serviceAccount:%s", principalAccount)
-		targetId      = fmt.Sprintf("projects/%s/serviceAccounts/%s", getProjectFromServiceAccount(targetAccount), targetAccount)
+		targetId      = fmt.Sprintf("projects/%s/serviceAccounts/%s", GetProjectFromServiceAccount(targetAccount), targetAccount)
 		role          = "roles/iam.serviceAccountUser"
 		iamClient     *iam.Service
 		token         oauth2.TokenSource
@@ -173,7 +173,7 @@ func setServiceAccountUserRole(impersonateAccount string, targetAccount string, 
 	}
 }
 
-func getProjectFromServiceAccount(serviceAccount string) string {
+func GetProjectFromServiceAccount(serviceAccount string) string {
 	regex := regexp.MustCompile(`@([^\.]+)\.iam\.gserviceaccount\.com`)
 	matches := regex.FindStringSubmatch(serviceAccount)
 
