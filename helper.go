@@ -82,6 +82,16 @@ func ImpersonateSA(context context.Context, serviceAccount string, scope string)
 	return token, nil
 }
 
+func CheckBody(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		http.Error(w, " * Error: "+err.Error(), http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+	log.Println(" - Request Body: ", string(body))
+}
+
 func AddServiceAccountUserRole(impersonateAccount string, targetAccount string, principalAccount string) error {
 	return setServiceAccountUserRole(impersonateAccount, targetAccount, principalAccount, true)
 }
