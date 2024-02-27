@@ -88,8 +88,13 @@ func CheckBody(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, " * Error: "+err.Error(), http.StatusBadRequest)
 		return
 	}
-	defer r.Body.Close()
+	log.Println(" -------------------------------------------------------------")
+	log.Println(" Request information:")
+	log.Println(" - Request URL: ", r.URL)
+	log.Println(" - Request Method: ", r.Method)
+	log.Println(" - Request Headers: ", r.Header)
 	log.Println(" - Request Body: ", string(body))
+	log.Println(" -------------------------------------------------------------")
 }
 
 func AddServiceAccountUserRole(impersonateAccount string, targetAccount string, principalAccount string) error {
