@@ -32,7 +32,7 @@ type Message struct {
 }
 
 func GetFavicon(w http.ResponseWriter, r *http.Request) {
-	iconData, err := os.ReadFile("favicon.ico")
+	iconData, err := os.ReadFile("./favicon.ico")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		fmt.Println(" - Error: ", err)
@@ -82,6 +82,19 @@ func ImpersonateSA(context context.Context, serviceAccount string, scope string)
 	return token, nil
 }
 
+// CheckBody is a function that will print the request information
+// It will print the URL, Method, Headers and Body of the request
+// It is used to debug the request information
+// Needs to be used with io.TeeReader to be able to read the body multiple times
+// Example:
+//   - http.HandleFunc("/", CheckBody)
+//
+// Output:
+//   - Request information:
+//   - Request URL:  /?test=1
+//   - Request Method:  GET
+//   - Request Headers:  map[Accept:[*/*] Accept-Encoding:[gzip] User-Agent:[Go-http-client/1.1]]
+//   - Request Body:  test=1
 func CheckBody(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
