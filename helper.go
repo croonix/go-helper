@@ -82,6 +82,16 @@ func ImpersonateSA(context context.Context, serviceAccount string, scope string)
 	return token, nil
 }
 
+// CatMode is a function that will print the request information
+// It will print the URL, Method, Headers and Body of the request
+// It is used to debug the request information
+func CatMode(r *http.Request) {
+	enableCatMode := os.Getenv("CAT_MODE")
+	if enableCatMode == "1" && r.URL.Path != "/health" && r.URL.Path != "/favicon.ico" && r.URL.Path != "/healthz" {
+		log.Println(r)
+	}
+}
+
 // CheckBody is a function that will print the request information
 // It will print the URL, Method, Headers and Body of the request
 // It is used to debug the request information
