@@ -42,3 +42,15 @@ func Logger(message string, level string) {
 		log.Print(level + ": " + message + "\n")
 	}
 }
+
+// ConvertToBoolPointer is a simple function that converts a interface to a *bool
+func ConvertToBoolPointer(value interface{}) *bool {
+	switch v := value.(type) {
+	case *bool:
+		return v
+	case bool:
+		return &v
+	default:
+		return nil
+	}
+}
