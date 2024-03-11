@@ -4,7 +4,7 @@ go 1.22.0
 
 require (
 	cloud.google.com/go/logging v1.9.0
-	github.com/go-sql-driver/mysql v1.7.1
+	github.com/go-sql-driver/mysql v1.8.0
 	golang.org/x/oauth2 v0.18.0
 	google.golang.org/api v0.168.0
 	google.golang.org/protobuf v1.33.0
@@ -17,6 +17,7 @@ require (
 	cloud.google.com/go/compute v1.25.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	cloud.google.com/go/longrunning v0.5.5 // indirect
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.1 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
