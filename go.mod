@@ -9,7 +9,7 @@ require (
 	google.golang.org/api v0.168.0
 	google.golang.org/protobuf v1.33.0
 	gorm.io/driver/mysql v1.5.4
-	gorm.io/gorm v1.25.7
+	gorm.io/gorm v1.25.8
 )
 
 require (
