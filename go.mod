@@ -1,6 +1,6 @@
 module github.com/croonix/go-helper
 
-go 1.22.0
+go 1.22.1
 
 require (
 	cloud.google.com/go/logging v1.9.0
