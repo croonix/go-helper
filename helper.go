@@ -1,8 +1,10 @@
 package helper
 
 import (
+	"fmt"
 	"log"
 	"os"
+	"strings"
 )
 
 const WrongMessage = "What are you doing here?"
@@ -53,4 +55,20 @@ func ConvertToBoolPointer(value interface{}) *bool {
 	default:
 		return nil
 	}
+}
+
+// List2String converts a list of strings to a string in the format ["value1","value2"]
+func List2String(values []string) string {
+	var response strings.Builder
+
+	response.WriteString("[")
+	for i, valor := range values {
+		response.WriteString(fmt.Sprintf(`"%s"`, valor))
+		if i < len(values)-1 {
+			response.WriteString(",")
+		}
+	}
+	response.WriteString("]")
+
+	return response.String()
 }
