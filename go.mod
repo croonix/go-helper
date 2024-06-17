@@ -9,7 +9,7 @@ require (
 	golang.org/x/oauth2 v0.21.0
 	google.golang.org/api v0.183.0
 	google.golang.org/protobuf v1.34.1
-	gorm.io/driver/mysql v1.5.6
+	gorm.io/driver/mysql v1.5.7
 	gorm.io/gorm v1.25.10
 )
 
